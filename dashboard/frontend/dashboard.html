@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>锅炉安全物联网+监控系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #060b1c;
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+            color: #fff;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 背景网格 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 顶部标题栏 */
+        .header {
+            height: 80px;
+            background: linear-gradient(to bottom, rgba(10, 20, 50, 0.95), rgba(10, 20, 50, 0.7));
+            border-bottom: 2px solid rgba(59, 130, 246, 0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            position: relative;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6, #2563eb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 4px;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            text-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .header-info {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .header-info span {
+            color: #94a3b8;
+            font-size: 14px;
+            font-family: "Courier New", monospace;
+        }
+
+        .header-info .status {
+            padding: 6px 16px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            color: #60a5fa;
+            font-weight: bold;
+        }
+
+        /* 主容器 */
+        .main-container {
+            display: grid;
+            grid-template-columns: 360px 1fr 360px;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 16px;
+            padding: 20px;
+            height: calc(100vh - 100px);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 通用面板 */
+        .panel {
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 6px;
+            padding: 20px;
+            position: relative;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .panel::before,
+        .panel::after {
+            content: "";
+            position: absolute;
+            width: 12px;
+            height: 12px;
+        }
+
+        .panel::before {
+            top: -1px;
+            left: -1px;
+            border-top: 2px solid #3b82f6;
+            border-left: 2px solid #3b82f6;
+        }
+
+        .panel::after {
+            bottom: -1px;
+            right: -1px;
+            border-bottom: 2px solid #3b82f6;
+            border-right: 2px solid #3b82f6;
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #e2e8f0;
+            margin-bottom: 16px;
+            padding-left: 12px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        /* 布局 */
+        .left-top { grid-column: 1; grid-row: 1; }
+        .left-mid { grid-column: 1; grid-row: 2; }
+        .left-bottom { grid-column: 1; grid-row: 3; }
+
+        .center-3d {
+            grid-column: 2;
+            grid-row: 1 / 4;
+            background: rgba(10, 15, 30, 0.85);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #boiler3d {
+            width: 100%;
+            height: 100%;
+        }
+
+        .boiler-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 15px 20px;
+            border-left: 4px solid #3b82f6;
+            border-radius: 4px;
+        }
+
+        .boiler-info h3 {
+            font-size: 18px;
+            color: #60a5fa;
+            margin-bottom: 8px;
+        }
+
+        .boiler-info p {
+            font-size: 13px;
+            color: #94a3b8;
+            margin: 4px 0;
+        }
+
+        .right-top { grid-column: 3; grid-row: 1; }
+        .right-mid { grid-column: 3; grid-row: 2; }
+        .right-bottom { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* 数据卡片 */
+        .data-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .data-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(30, 41, 59, 0.3));
+            padding: 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            text-align: center;
+        }
+
+        .data-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #60a5fa;
+            font-family: "Courier New", monospace;
+            margin-bottom: 6px;
+        }
+
+        .data-card.success .value { color: #60a5fa; }
+        .data-card.danger .value { color: #ef4444; }
+
+        .data-card .label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+
+        /* 记录列表 */
+        .record-list {
+            max-height: 100%;
+            overflow-y: auto;
+        }
+
+        .record-item {
+            background: rgba(30, 41, 59, 0.4);
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid #3b82f6;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .record-item.alert {
+            border-left-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .record-item .time {
+            color: #60a5fa;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .record-item .content {
+            color: #cbd5e1;
+            margin-top: 4px;
+        }
+
+        .record-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .record-list::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 顶部 -->
+    <div class="header">
+        <h1>锅炉安全物联网+监控系统</h1>
+        <div class="header-info">
+            <span id="datetime">2026-01-22 14:30:15</span>
+            <span class="status">● 系统正常</span>
+        </div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        
+        <!-- 左上 -->
+        <div class="panel left-top">
+            <div class="panel-title">总体概况</div>
+            <div class="data-cards">
+                <div class="data-card success">
+                    <div class="value">31</div>
+                    <div class="label">在线设备</div>
+                </div>
+                <div class="data-card danger">
+                    <div class="value">2</div>
+                    <div class="label">告警数</div>
+                </div>
+                <div class="data-card">
+                    <div class="value">15</div>
+                    <div class="label">今日巡检</div>
+                </div>
+                <div class="data-card success">
+                    <div class="value">94%</div>
+                    <div class="label">完好率</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 左中 -->
+        <div class="panel left-mid">
+            <div class="panel-title">排烟温度趋势（12H）</div>
+            <div id="chartLine" style="width: 100%; height: calc(100% - 40px);"></div>
+        </div>
+
+        <!-- 左下 -->
+        <div class="panel left-bottom">
+            <div class="panel-title">设备运行状态</div>
+            <div id="chartRadar" style="width: 100%; height: calc(100% - 40px);"></div>
+        </div>
+
+        <!-- 中间 -->
+        <div class="panel center-3d">
+            <div class="boiler-info">
+                <h3>锅炉车间3D模型</h3>
+                <button onclick="toggleCameraView()" style="padding: 4px 12px; background: #3b82f6; border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 11px;">
+                    <span id="viewModeText">切换视角</span>
+                </button>
+                <span style="font-size: 11px; color: #94a3b8; margin-left: 12px;">💡 鼠标拖动旋转 | 滚轮缩放</span>
+            </div>
+            <div id="boiler3d"></div>
+        </div>
+
+        <!-- 右上 -->
+        <div class="panel right-top">
+            <div class="panel-title">关键运行参数</div>
+            <div id="chartGauge" style="width: 100%; height: calc(100% - 40px);"></div>
+        </div>
+
+        <!-- 右中 -->
+        <div class="panel right-mid">
+            <div class="panel-title">隐患类型分布</div>
+            <div id="chartPie" style="width: 100%; height: calc(100% - 40px);"></div>
+        </div>
+
+        <!-- 右下 -->
+        <div class="panel right-bottom" style="display: flex; flex-direction: column;">
+            <div class="panel-title" style="flex-shrink: 0;">实时告警列表</div>
+            <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="recordSearchInput" placeholder="搜索监测点/位置/类型..." style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(59, 130, 246, 0.5); color: #fff; padding: 6px; border-radius: 4px; font-size: 12px;">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+                    <button onclick="loadJSONFile()" style="flex: 1; padding: 6px 12px; background: rgba(59, 130, 246, 0.8); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">📂 加载JSON</button>
+                    <button onclick="resetToMockData()" style="flex: 1; padding: 6px 12px; background: rgba(100, 116, 139, 0.8); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">🔄 重置</button>
+                </div>
+            </div>
+            <div class="record-list" id="alarmList" style="flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0;"></div>
+        </div>
+
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div id="detailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid #3b82f6; border-radius: 8px; padding: 30px; max-width: 600px; max-height: 80vh; overflow-y: auto; position: relative;">
+            <button onclick="closeDetailModal()" style="position: absolute; top: 10px; right: 10px; background: rgba(239, 68, 68, 0.8); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 18px;">×</button>
+            <div id="detailContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // 确保页面加载完成后执行
+        window.addEventListener('DOMContentLoaded', function() {
+            initDashboard();
+        });
+
+        function initDashboard() {
+            console.log('🚀 开始初始化大屏...');
+            
+            // 时间更新
+            function updateTime() {
+                document.getElementById('datetime').innerText = new Date().toLocaleString('zh-CN');
+            }
+            setInterval(updateTime, 1000);
+            updateTime();
+
+            // 全局变量存储当前数据
+            window.currentData = [];
+            window.charts = {};
+
+            // 生成模拟数据
+            generateMockData();
+            console.log('✅ 模拟数据已生成:', window.currentData.length, '条');
+
+            // 初始化3D和图表
+            console.log('🎨 开始初始化3D场景...');
+            init3DBoiler();
+            console.log('📊 开始初始化图表...');
+            initCharts();
+            console.log('✅ 图表初始化完成');
+            
+            // 更新数据点和告警列表
+            console.log('🔄 更新数据点...');
+            updateDataPoints();
+            console.log('🚨 渲染告警列表...');
+            
+            // 绑定搜索框事件
+            const searchInput = document.getElementById('recordSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', renderAlarmList);
+            }
+            
+            renderAlarmList();
+            console.log('📈 更新统计卡片...');
+            updateStatCards();
+            console.log('✅ 大屏初始化完成！');
+            
+            // 窗口缩放
+            window.addEventListener('resize', () => {
+                Object.values(window.charts).forEach(chart => chart && chart.resize());
+            });
+
+            // 监听来自父页面(dashboard_system.html)的数据同步消息
+            window.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'updateData') {
+                    console.log('📬 收到父页面数据:', event.data.data.length);
+                    const newData = event.data.data;
+                    
+                    if (Array.isArray(newData) && newData.length > 0) {
+                        window.currentData = newData;
+                        
+                        // 刷新所有视图
+                        console.log('🔄 根据新数据刷新视图...');
+                        updateDataPoints();
+                        renderAlarmList();
+                        updateStatCards();
+                        
+                        // 提示用户
+                        const toast = document.createElement('div');
+                        toast.style.position = 'fixed';
+                        toast.style.top = '100px';
+                        toast.style.left = '50%';
+                        toast.style.transform = 'translateX(-50%)';
+                        toast.style.background = 'rgba(59, 130, 246, 0.9)';
+                        toast.style.color = '#fff';
+                        toast.style.padding = '10px 20px';
+                        toast.style.borderRadius = '4px';
+                        toast.style.zIndex = '9999';
+                        toast.innerText = '✅ 数据已同步到大屏';
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 2000);
+                    }
+                }
+            });
+        } // end of initDashboard
+
+        // 生成模拟数据
+        function generateMockData() {
+            const mockData = [];
+            const teams = ['王工', '李工', '张班长', '赵队', '孙师傅'];
+            const locations = ['#1号锅炉', '#2号锅炉', '主控机组', '辅助炉', '冷却系统'];
+            
+            for (let i = 0; i < 20; i++) {
+                // 提高告警概率到 35% 保证有数据
+                const isAbnormal = Math.random() > 0.65;
+                const forceAlert = (i > 15 && mockData.filter(d => d.status === '告警').length < 2);
+                
+                const finalStatus = (isAbnormal || forceAlert) ? "告警" : "正常";
+                const temp = finalStatus === "告警" ? (90 + Math.random() * 20) : (60 + Math.random() * 25);
+                
+                mockData.push({
+                    id: i,
+                    inspector: teams[Math.floor(Math.random() * teams.length)],
+                    location: locations[Math.floor(Math.random() * locations.length)],
+                    time: new Date(Date.now() - i * 420000).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}),
+                    position: {
+                        // 2026-01-24: 使用真实尺度坐标 (-15 到 +15)，不再依赖渲染时的缩放
+                        x: (Math.random() - 0.5) * 30, 
+                        y: Math.random() * 2,          
+                        z: (Math.random() - 0.5) * 30  
+                    },
+                    temp: temp.toFixed(1),
+                    pressure: (0.8 + Math.random() * 1.5).toFixed(2),
+                    humidity: (20 + Math.random() * 50).toFixed(1),
+                    status: finalStatus,
+                    abnormalType: finalStatus === "告警" ? (temp > 95 ? "温度过高" : "压力异常") : null,
+                    description: finalStatus === "告警" ? "发现异常，需要检查处理" : "设备运行正常",
+                    photo: null
+                });
+            }
+            window.currentData = mockData;
+        }
+
+        // 渲染告警列表（带搜索过滤）
+        function renderAlarmList() {
+            const alarmList = document.getElementById('alarmList');
+            if (!alarmList) return;
+            
+            // 获取搜索词（兼容Input可能不存在的情况）
+            let searchText = '';
+            const searchInput = document.getElementById('recordSearchInput');
+            if (searchInput) {
+                searchText = searchInput.value.toLowerCase().trim();
+            }
+
+            alarmList.innerHTML = '';
+            
+            // 筛选逻辑：必须是告警，且 (无搜索词 OR 匹配搜索词)
+            const filteredData = window.currentData.filter(d => {
+                const isAlarm = d.status === "告警";
+                if (!isAlarm) return false; // 只显示告警
+                
+                if (!searchText) return true; // 无搜索词，全部显示
+                
+                // 模糊匹配
+                const matchSearch = (
+                    (d.inspector && d.inspector.includes(searchText)) ||
+                    (d.location && d.location.includes(searchText)) ||
+                    (d.abnormalType && d.abnormalType.includes(searchText)) ||
+                    (d.description && d.description.includes(searchText))
+                );
+                return matchSearch;
+            });
+
+            if (filteredData.length === 0) {
+                alarmList.innerHTML = '<div style="text-align:center;color:#64748b;padding:20px;">无匹配记录</div>';
+                return;
+            }
+
+            filteredData.forEach(d => {
+                const item = document.createElement('div');
+                item.className = 'record-item alert';
+                item.style.cursor = 'pointer';
+                item.onclick = () => showDetailModal(d);
+                item.innerHTML = `
+                    <div class="time">${d.time}</div>
+                    <div class="content">
+                        <strong style="color:#fca5a5;">⚠ ${d.abnormalType || d.issue || '异常'}</strong><br>
+                        ${d.inspector} | ${d.location}<br>
+                        温度: ${d.temp}°C | 压力: ${d.pressure} MPa
+                    </div>
+                `;
+                alarmList.appendChild(item);
+            });
+        }
+
+
+
+        // 3D锅炉车间场景
+        function init3DBoiler() {
+            const container = document.getElementById('boiler3d');
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0f1e);
+            scene.fog = new THREE.Fog(0x0a0f1e, 10, 50);
+            
+            const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 200);
+            // 2026-01-24: 调整初始相机位置，拉近距离，聚焦到场景中心
+            camera.position.set(12, 12, 18);
+            camera.lookAt(0, 4, 0);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // 添加鼠标控制（可拖动、旋转、缩放）
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // 平滑阻尼
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 2;  // 最近距离允许更近，方便查看细节
+            controls.maxDistance = 50; // 限制最远距离，防止飞出太远看不到
+            controls.maxPolarAngle = Math.PI / 2.1; // 限制俯仰角（不能钻到地下）
+            controls.target.set(0, 4, 0); // 观察中心点略微抬高
+
+            // 灯光
+            scene.add(new THREE.AmbientLight(0x404556, 1.2));
+            const mainLight = new THREE.DirectionalLight(0x60a5fa, 1.5);
+            mainLight.position.set(10, 15, 10);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+            
+            // 车间地面（大型 40x40m）
+            const floorGeometry = new THREE.PlaneGeometry(40, 40);
+            const floorMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1f2e,
+                metalness: 0.3,
+                roughness: 0.8
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            
+            // 网格辅助线（地面参考）
+            const gridHelper = new THREE.GridHelper(40, 40, 0x3b82f6, 0x1e3a8a);
+            gridHelper.material.opacity = 0.3;
+            gridHelper.material.transparent = true;
+            scene.add(gridHelper);
+
+            // 车间墙壁（透明，可以从外面看进去，高度适配新设备）
+            const wallHeight = 25;
+            const wallMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x2563eb,
+                transparent: true,
+                opacity: 0.15,
+                side: THREE.DoubleSide
+            });
+            
+            // 四面墙（40x40区域）
+            const wallGeom = new THREE.PlaneGeometry(40, wallHeight);
+            const walls = [
+                { pos: [0, wallHeight/2, -20], rot: [0, 0, 0] },      // 后墙
+                { pos: [0, wallHeight/2, 20], rot: [0, Math.PI, 0] }, // 前墙
+                { pos: [-20, wallHeight/2, 0], rot: [0, Math.PI/2, 0] }, // 左墙
+                { pos: [20, wallHeight/2, 0], rot: [0, -Math.PI/2, 0] }  // 右墙
+            ];
+            
+            walls.forEach(w => {
+                const wall = new THREE.Mesh(wallGeom, wallMaterial);
+                wall.position.set(...w.pos);
+                wall.rotation.set(...w.rot);
+                scene.add(wall);
+            });
+
+            // 车间顶棚
+            const roofGeom = new THREE.PlaneGeometry(40, 40);
+            const roofMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1e293b,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            const roof = new THREE.Mesh(roofGeom, roofMaterial);
+            roof.position.y = wallHeight;
+            roof.rotation.x = Math.PI / 2;
+            scene.add(roof);
+
+            // 创建多个锅炉设备 (加大尺寸适应50x50场地)
+            const boilerPositions = [
+                { x: -12, z: -8, name: '#1锅炉' },
+                { x: 12, z: -8, name: '#2锅炉' },
+                { x: -12, z: 8, name: '辅助炉' },
+                { x: 12, z: 8, name: '备用炉' }
+            ];
+
+            const boilers = [];
+            boilerPositions.forEach((pos, idx) => {
+                const boilerGroup = new THREE.Group();
+                
+                // 锅炉主体 (恢复原始巨大尺寸)
+                const bodyGeom = new THREE.CylinderGeometry(3.6, 4.5, 15, 32);
+                const bodyMat = new THREE.MeshStandardMaterial({ 
+                    color: idx === 0 ? 0x3b82f6 : 0x1e3a8a,
+                    metalness: 0.7,
+                    roughness: 0.3,
+                    emissive: idx === 0 ? 0x3b82f6 : 0x0f1729,
+                    emissiveIntensity: idx === 0 ? 0.2 : 0.05
+                });
+                const body = new THREE.Mesh(bodyGeom, bodyMat);
+                body.position.y = 7.5;
+                body.castShadow = true;
+                boilerGroup.add(body);
+
+                // 顶盖
+                const topGeom = new THREE.CylinderGeometry(3.6, 3.6, 1.2, 32);
+                const top = new THREE.Mesh(topGeom, bodyMat);
+                top.position.y = 15.6;
+                boilerGroup.add(top);
+
+                // 管道
+                const pipeGeom = new THREE.CylinderGeometry(0.36, 0.36, 9, 12);
+                const pipeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8 });
+                for (let i = 0; i < 3; i++) {
+                    const pipe = new THREE.Mesh(pipeGeom, pipeMat);
+                    pipe.position.set(Math.cos(i * Math.PI * 0.67) * 4.8, 7.5, Math.sin(i * Math.PI * 0.67) * 4.8);
+                    pipe.rotation.z = Math.PI / 2;
+                    boilerGroup.add(pipe);
+                }
+
+                // 底座
+                const baseGeom = new THREE.CylinderGeometry(5.4, 5.4, 0.9, 32);
+                const baseMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+                const base = new THREE.Mesh(baseGeom, baseMat);
+                base.position.y = 0.45;
+                boilerGroup.add(base);
+
+                boilerGroup.position.set(pos.x, 0, pos.z);
+                boilerGroup.userData.name = pos.name;
+                scene.add(boilerGroup);
+                boilers.push({ group: boilerGroup, body });
+            });
+
+            // 控制台 (原始尺寸)
+            const consoleGeom = new THREE.BoxGeometry(2, 1.5, 0.8);
+            const consoleMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+            const consoleMesh = new THREE.Mesh(consoleGeom, consoleMat);
+            consoleMesh.position.set(0, 0.75, 7);
+            scene.add(consoleMesh);
+
+            // 交互：射线检测
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            function onMouseClick(event) {
+                // 计算鼠标在Canvas中的归一化坐标 (-1 到 +1)
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+
+                // 检测与数据点的交叉
+                const intersects = raycaster.intersectObjects(scene.children, true); // recursive=true
+                
+                // 查找逻辑：
+                // 1. 直接点击了点 (obj.object.userData.isDataPoint)
+                // 2. 点击了点的子元素如glow (obj.object.parent.userData.isDataPoint)
+                const hit = intersects.find(obj => {
+                    return obj.object.userData.isDataPoint || (obj.object.parent && obj.object.parent.userData.isDataPoint);
+                });
+                
+                if (hit) {
+                    const target = hit.object.userData.isDataPoint ? hit.object : hit.object.parent;
+                    console.log("🔥 点击了数据点:", target.userData.recordData);
+                    
+                    // 效果：选中放大
+                    scene.children.forEach(c => {
+                        if (c.userData.isDataPoint) {
+                           // 复原自己和子元素Scale
+                           c.scale.set(1, 1, 1);
+                           c.children.forEach(child => child.scale.set(1,1,1));
+                        }
+                    });
+                     
+                    target.scale.set(1.5, 1.5, 1.5);
+                    
+                    // 显示弹窗
+                    showDetailModal(target.userData.recordData);
+                }
+            }
+
+            // 使用 click 事件，OrbitControls 内部会区分拖拽和点击
+            renderer.domElement.addEventListener('click', onMouseClick, false);
+            
+            // 鼠标移动效果（变手型）
+            renderer.domElement.addEventListener('mousemove', (event) => {
+                 const rect = renderer.domElement.getBoundingClientRect();
+                 mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                 mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                 raycaster.setFromCamera(mouse, camera);
+                 const intersects = raycaster.intersectObjects(scene.children, true);
+                 const hit = intersects.find(obj => obj.object.userData.isDataPoint || (obj.object.parent && obj.object.parent.userData.isDataPoint));
+                 renderer.domElement.style.cursor = hit ? 'pointer' : 'default';
+            });
+
+            // 存储场景对象
+            window.boilerScene = { 
+                scene, camera, renderer, boilers, floor, walls,
+                controls,  // 保存controls引用
+                isInsideView: false  // 视角状态：false=外部，true=内部
+            };
+
+            // 动画循环
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update(); // 更新控制器
+                boilers.forEach((b, i) => {
+                    b.body.rotation.y += 0.002 * (i % 2 === 0 ? 1 : -1);
+                });
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+
+            // 初始渲染数据点
+            updateDataPoints();
+        }
+
+        // 切换视角（内部/外部）
+        function toggleCameraView() {
+            const { camera, controls, isInsideView } = window.boilerScene;
+            const duration = 1000; // 动画时长（毫秒）
+            const startTime = Date.now();
+            
+            const startPos = camera.position.clone();
+            const startTarget = controls.target.clone();
+            
+            // 目标位置
+            let targetPos, targetLookAt;
+            if (isInsideView) {
+                // 切换到外部视角 - 2026-01-24: 优化外部视角坐标，拉近距离
+                targetPos = new THREE.Vector3(12, 12, 18);
+                targetLookAt = new THREE.Vector3(0, 4, 0);
+                document.getElementById('viewModeText').textContent = '内部视角';
+            } else {
+                // 切换到内部视角（车间内部）
+                targetPos = new THREE.Vector3(0, 2, 8);
+                targetLookAt = new THREE.Vector3(0, 3, 0);
+                document.getElementById('viewModeText').textContent = '外部视角';
+            }
+            
+            function animateCamera() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeProgress = progress < 0.5 
+                    ? 2 * progress * progress 
+                    : 1 - Math.pow(-2 * progress + 2, 2) / 2; // easeInOutQuad
+                
+                camera.position.lerpVectors(startPos, targetPos, easeProgress);
+                const currentTarget = new THREE.Vector3().lerpVectors(startTarget, targetLookAt, easeProgress);
+                controls.target.copy(currentTarget);
+                controls.update();
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animateCamera);
+                } else {
+                    window.boilerScene.isInsideView = !isInsideView;
+                }
+            }
+            
+            animateCamera();
+        }
+
+        // 更新3D场景中的数据点
+        window.updateDataPoints = function() {
+            const scene = window.boilerScene.scene;
+            
+            // 清除旧的数据点
+            const oldPoints = scene.children.filter(obj => obj.userData.isDataPoint);
+            oldPoints.forEach(p => scene.remove(p));
+
+            // 添加新的数据点（位置映射到车间坐标）
+            // 半径缩小一半，因为场景变大了，相对感觉应该变小
+            const alertGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+            const normalGeometry = new THREE.SphereGeometry(0.12, 16, 16);
+
+            window.currentData.forEach((d, idx) => {
+                const geometry = d.status === "告警" ? alertGeometry : normalGeometry;
+                
+                // 发光材质 (正常: 蓝色, 告警: 红色)
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: d.status === "告警" ? 0xff4444 : 0x3b82f6,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                
+                const point = new THREE.Mesh(geometry, material);
+                
+                // 映射坐标：
+                // 2026-01-24: 移除 * 5 放大系数，直接使用真实坐标，兼容 App 导入的 AR 坐标 (1单位=1米)
+                let mappedX = d.position.x;
+                let mappedY = Math.abs(d.position.y) + 2; // 基础高度抬升
+                let mappedZ = d.position.z;
+
+                // 简单的边界检查，防止数据跑出车间 (车间范围 +/- 20)
+                if (Math.abs(mappedX) > 19) mappedX = mappedX > 0 ? 19 : -19;
+                if (Math.abs(mappedZ) > 19) mappedZ = mappedZ > 0 ? 19 : -19;
+                
+                point.position.set(mappedX, mappedY, mappedZ);
+                point.userData.isDataPoint = true;
+                point.userData.recordData = d;
+                
+                // 添加发光效果 (稍微调小光圈，避免太乱)
+                const glowGeom = new THREE.SphereGeometry(geometry.parameters.radius * 1.5, 8, 8); 
+                const glowMat = new THREE.MeshBasicMaterial({
+                    color: d.status === "告警" ? 0xff4444 : 0x3b82f6,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                const glow = new THREE.Mesh(glowGeom, glowMat);
+                // 确保光圈也被射线检测忽略或正确处理(通常作为子对象)
+                point.add(glow);
+                
+                scene.add(point);
+            });
+        };
+
+        // 初始化所有图表
+        function initCharts() {
+            console.log('📊 initCharts 开始执行');
+            
+            // 检查所有DOM元素是否存在
+            const elements = {
+                chartLine: document.getElementById('chartLine'),
+                chartRadar: document.getElementById('chartRadar'),
+                chartGauge: document.getElementById('chartGauge'),
+                chartPie: document.getElementById('chartPie')
+            };
+            
+            console.log('DOM元素检查:', elements);
+            
+            // ECharts - 折线图
+            const chartLine = echarts.init(elements.chartLine);
+        const hours = Array.from({length: 12}, (_, i) => `${(new Date().getHours() - 11 + i + 24) % 24}:00`);
+        const tempData1 = hours.map(() => (70 + Math.random() * 25).toFixed(1));
+
+        chartLine.setOption({
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'axis', backgroundColor: 'rgba(0,0,0,0.8)' },
+            grid: { left: '8%', right: '5%', top: '10%', bottom: '12%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                data: hours,
+                axisLine: { lineStyle: { color: '#334155' } },
+                axisLabel: { color: '#94a3b8', fontSize: 10 }
+            },
+            yAxis: {
+                type: 'value',
+                axisLine: { lineStyle: { color: '#334155' } },
+                splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+                axisLabel: { color: '#94a3b8', fontSize: 10 }
+            },
+            series: [{
+                type: 'line',
+                data: tempData1,
+                smooth: true,
+                lineStyle: { color: '#3b82f6', width: 2 },
+                itemStyle: { color: '#3b82f6' },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(59, 130, 246, 0.3)' },
+                        { offset: 1, color: 'rgba(59, 130, 246, 0)' }
+                    ])
+                }
+            }]
+        });
+
+        // ECharts - 雷达图
+        const chartRadar = echarts.init(elements.chartRadar);
+        chartRadar.setOption({
+            backgroundColor: 'transparent',
+            radar: {
+                indicator: [
+                    { name: '燃烧效率', max: 100 },
+                    { name: '热效率', max: 100 },
+                    { name: '设备完整率', max: 100 },
+                    { name: '环保达标', max: 100 },
+                    { name: '安全指数', max: 100 }
+                ],
+                splitArea: {
+                    areaStyle: {
+                        color: ['rgba(59, 130, 246, 0.05)', 'rgba(59, 130, 246, 0.1)']
+                    }
+                },
+                axisLine: { lineStyle: { color: 'rgba(59, 130, 246, 0.3)' } },
+                splitLine: { lineStyle: { color: 'rgba(59, 130, 246, 0.3)' } },
+                name: { textStyle: { color: '#94a3b8', fontSize: 10 } }
+            },
+            series: [{
+                type: 'radar',
+                data: [{
+                    value: [92, 88, 94, 87, 91],
+                    name: '主控锅炉',
+                    areaStyle: {
+                        color: new echarts.graphic.RadialGradient(0.5, 0.5, 1, [
+                            { offset: 0, color: 'rgba(59, 130, 246, 0.3)' },
+                            { offset: 1, color: 'rgba(59, 130, 246, 0.05)' }
+                        ])
+                    },
+                    lineStyle: { color: '#3b82f6', width: 2 },
+                    itemStyle: { color: '#60a5fa' }
+                }]
+            }]
+        });
+
+        // ECharts - 仪表盘
+        const chartGauge = echarts.init(elements.chartGauge);
+        chartGauge.setOption({
+            backgroundColor: 'transparent',
+            series: [
+                {
+                    type: 'gauge',
+                    center: ['25%', '50%'],
+                    radius: '70%',
+                    startAngle: 200,
+                    endAngle: -20,
+                    min: 0,
+                    max: 100,
+                    splitNumber: 5,
+                    progress: { show: true, width: 8, itemStyle: { color: '#3b82f6' } },
+                    axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(59, 130, 246, 0.2)']] } },
+                    axisTick: { show: false },
+                    splitLine: { length: 6, lineStyle: { width: 1, color: '#334155' } },
+                    axisLabel: { distance: 12, color: '#94a3b8', fontSize: 9 },
+                    detail: {
+                        valueAnimation: true,
+                        formatter: '{value}°C',
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        color: '#60a5fa',
+                        offsetCenter: [0, '60%']
+                    },
+                    title: {
+                        offsetCenter: [0, '80%'],
+                        fontSize: 11,
+                        color: '#94a3b8'
+                    },
+                    data: [{ value: 87, name: '排烟温度' }]
+                },
+                {
+                    type: 'gauge',
+                    center: ['75%', '50%'],
+                    radius: '70%',
+                    startAngle: 200,
+                    endAngle: -20,
+                    min: 0,
+                    max: 2.5,
+                    splitNumber: 5,
+                    progress: { show: true, width: 8, itemStyle: { color: '#60a5fa' } },
+                    axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(96, 165, 250, 0.2)']] } },
+                    axisTick: { show: false },
+                    splitLine: { length: 6, lineStyle: { width: 1, color: '#334155' } },
+                    axisLabel: { distance: 12, color: '#94a3b8', fontSize: 9 },
+                    detail: {
+                        valueAnimation: true,
+                        formatter: '{value}MPa',
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        color: '#60a5fa',
+                        offsetCenter: [0, '60%']
+                    },
+                    title: {
+                        offsetCenter: [0, '80%'],
+                        fontSize: 11,
+                        color: '#94a3b8'
+                    },
+                    data: [{ value: 1.52, name: '蒸汽压力' }]
+                }
+            ]
+        });
+
+        // ECharts - 饼图
+        const chartPie = echarts.init(elements.chartPie);
+        chartPie.setOption({
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'item', backgroundColor: 'rgba(0,0,0,0.8)' },
+            legend: {
+                orient: 'vertical',
+                right: 10,
+                top: 'center',
+                textStyle: { color: '#94a3b8', fontSize: 11 }
+            },
+            series: [{
+                type: 'pie',
+                radius: ['40%', '70%'],
+                center: ['35%', '50%'],
+                avoidLabelOverlap: false,
+                itemStyle: {
+                    borderRadius: 8,
+                    borderColor: '#0f172a',
+                    borderWidth: 2
+                },
+                label: { show: false },
+                emphasis: {
+                    label: {
+                        show: true,
+                        fontSize: 14,
+                        fontWeight: 'bold',
+                        color: '#fff'
+                    }
+                },
+                data: [
+                    { value: 1856, name: '正常运行', itemStyle: { color: '#3b82f6' } },
+                    { value: 423, name: '轻微异常', itemStyle: { color: '#f59e0b' } },
+                    { value: 98, name: '严重告警', itemStyle: { color: '#ef4444' } },
+                    { value: 165, name: '维护中', itemStyle: { color: '#6366f1' } }
+                ]
+            }]
+        });
+
+            // 存储图表实例
+            window.charts = {
+                chartLine,
+                chartRadar,
+                chartGauge,
+                chartPie
+            };
+            
+            console.log('✅ 所有图表初始化完成:', window.charts);
+        } // end of initCharts
+
+        // JSON文件加载
+        function loadJSONFile() {
+            const input = document.getElementById('jsonFileInput');
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const jsonData = JSON.parse(event.target.result);
+                        processJSONData(jsonData);
+                        alert(`✅ 成功加载 ${jsonData.records ? jsonData.records.length : 0} 条巡检记录`);
+                    } catch (error) {
+                        alert('❌ JSON格式错误：' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // 处理JSON数据
+        function processJSONData(jsonData) {
+            if (!jsonData.records || !Array.isArray(jsonData.records)) {
+                alert('❌ JSON格式错误：缺少 records 数组');
+                return;
+            }
+
+            // 转换JSON数据格式
+            window.currentData = jsonData.records.map((record, idx) => ({
+                id: record.id || idx,
+                inspector: record.inspector || '未知',
+                location: record.location || '未知位置',
+                time: record.time || new Date().toLocaleTimeString('zh-CN'),
+                position: record.position || {x: Math.random()*4-2, y: Math.random()*4-2, z: Math.random()*6-3},
+                temp: record.temperature || record.temp || '0',
+                pressure: record.pressure || '0',
+                humidity: record.humidity || '0',
+                status: record.status || '正常',
+                abnormalType: record.issue || record.abnormalType,
+                description: record.description || '',
+                photo: record.photo || null
+            }));
+
+            // 更新所有视图
+            updateDataPoints();
+            renderAlarmList();
+            
+            // 更新统计卡片
+            updateStatCards();
+        }
+
+        // 更新统计卡片
+        function updateStatCards() {
+            const total = window.currentData.length;
+            const alerts = window.currentData.filter(d => d.status === '告警').length;
+            const normal = total - alerts;
+            
+            document.querySelector('.left-top .data-cards').innerHTML = `
+                <div class="data-card success">
+                    <div class="value">${total}</div>
+                    <div class="label">检测记录</div>
+                </div>
+                <div class="data-card danger">
+                    <div class="value">${alerts}</div>
+                    <div class="label">告警数</div>
+                </div>
+                <div class="data-card success">
+                    <div class="value">${normal}</div>
+                    <div class="label">正常记录</div>
+                </div>
+                <div class="data-card">
+                    <div class="value">${((normal/total)*100).toFixed(0)}%</div>
+                    <div class="label">完好率</div>
+                </div>
+            `;
+        }
+
+        // 重置为模拟数据
+        function resetToMockData() {
+            generateMockData();
+            updateDataPoints();
+            renderAlarmList();
+            updateStatCards();
+            alert('✅ 已重置为模拟数据');
+        }
+
+        // 显示详情弹窗
+        function showDetailModal(record) {
+            const modal = document.getElementById('detailModal');
+            const content = document.getElementById('detailContent');
+            
+            let photoHTML = '';
+            if (record.photo) {
+                photoHTML = `<img src="${record.photo}" style="width: 100%; max-width: 400px; border-radius: 8px; margin: 15px 0;" onerror="this.style.display='none'">`;
+            }
+            
+            content.innerHTML = `
+                <h2 style="color: #60a5fa; margin-bottom: 20px; font-size: 24px;">📋 巡检记录详情</h2>
+                <div style="background: rgba(30, 41, 59, 0.6); padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="margin: 8px 0; color: #e2e8f0;"><strong>检测人员：</strong>${record.inspector}</p>
+                    <p style="margin: 8px 0; color: #e2e8f0;"><strong>检测时间：</strong>${record.time}</p>
+                    <p style="margin: 8px 0; color: #e2e8f0;"><strong>检测位置：</strong>${record.location}</p>
+                    <p style="margin: 8px 0; color: #e2e8f0;"><strong>坐标：</strong>X: ${record.position.x.toFixed(2)}, Y: ${record.position.y.toFixed(2)}, Z: ${record.position.z.toFixed(2)}</p>
+                </div>
+                <div style="background: rgba(30, 41, 59, 0.6); padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="margin: 8px 0; color: #e2e8f0;"><strong>排烟温度：</strong><span style="color: ${record.temp > 90 ? '#ef4444' : '#60a5fa'}">${record.temp}°C</span></p>
+                    <p style="margin: 8px 0; color: #e2e8f0;"><strong>蒸汽压力：</strong>${record.pressure} MPa</p>
+                    <p style="margin: 8px 0; color: #e2e8f0;"><strong>湿度：</strong>${record.humidity}%</p>
+                    <p style="margin: 8px 0;"><strong>状态：</strong><span style="color: ${record.status === '告警' ? '#ef4444' : '#3b82f6'}; font-weight: bold;">${record.status}</span></p>
+                </div>
+                ${record.abnormalType ? `<div style="background: rgba(239, 68, 68, 0.2); padding: 15px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #fca5a5; font-weight: bold;">⚠ ${record.abnormalType}</p>
+                </div>` : ''}
+                ${record.description ? `<div style="background: rgba(30, 41, 59, 0.6); padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #cbd5e1;"><strong>备注说明：</strong></p>
+                    <p style="margin: 10px 0 0 0; color: #94a3b8;">${record.description}</p>
+                </div>` : ''}
+                ${photoHTML}
+            `;
+            
+            modal.style.display = 'flex';
+        }
+
+        // 关闭详情弹窗
+        function closeDetailModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "record": {
+    "id": "B2C5642D-E831-4F4D-9321-7A3982A1C0F1",
+    "inspector": "演示员小王",
+    "time": "2026-01-24T14:30:00+08:00",
+    "location": "#1号锅炉 - 炉膛区域",
+    "position": {
+      "x": -2.5,
+      "y": 1.5,
+      "z": -3.0
+    },
+    "temperature": 98.5,
+    "pressure": 1.72,
+    "status": "告警",
+    "issue": "温度过高",
+    "description": "检测到炉壁温度异常升高，请核查保温层是否损坏。",
+    "photo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+  },
+  "project": "锅炉房安全巡检",
+  "exportTime": "2026-01-24T14:35:00+08:00"
+}

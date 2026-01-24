@@ -1,0 +1,40 @@
+{
+  "records": [
+    {
+      "id": "R001",
+      "inspector": "演示员小王",
+      "time": "2026-01-24T09:00:00+08:00",
+      "location": "#1号锅炉",
+      "position": { "x": 5.0, "y": 0.0, "z": 5.0 },
+      "temperature": 88.0,
+      "pressure": 1.5,
+      "status": "正常",
+      "description": "早班例行检查，一切正常。"
+    },
+    {
+      "id": "R002",
+      "inspector": "演示员小王",
+      "time": "2026-01-24T10:30:00+08:00",
+      "location": "辅助炉",
+      "position": { "x": -8.0, "y": 2.0, "z": -4.0 },
+      "temperature": 102.5,
+      "pressure": 2.1,
+      "status": "告警",
+      "issue": "压力异常",
+      "description": "压力表读数波动较大，阀门似乎未完全开启。"
+    },
+    {
+      "id": "R003",
+      "inspector": "李班长",
+      "time": "2026-01-24T11:15:00+08:00",
+      "location": "控制室",
+      "position": { "x": 0.0, "y": 0.0, "z": 8.0 },
+      "temperature": 26.0,
+      "pressure": 0.0,
+      "status": "正常",
+      "description": "控制台数据与现场一致。"
+    }
+  ],
+  "project": "锅炉房安全巡检(批量)",
+  "exportTime": "2026-01-24T12:00:00+08:00"
+}

@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>锅炉巡检管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Consolas', 'Courier New', 'Microsoft YaHei', monospace;
+            background: #0a0e1a;
+            color: #3b82f6;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 扫描线效果 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(59, 130, 246, 0.03) 2px,
+                    rgba(59, 130, 246, 0.03) 4px
+                );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* 网格背景 */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 左侧导航栏 */
+        .sidebar {
+            width: 240px;
+            background: #0d1117;
+            border-right: 2px solid #3b82f6;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 12px rgba(0,0,0,0.8);
+            position: relative;
+            z-index: 10;
+        }
+
+        .logo {
+            padding: 24px 20px;
+            border-bottom: 2px solid #3b82f6;
+            text-align: center;
+            background: #161b22;
+        }
+
+        .logo h1 {
+            font-size: 18px;
+            color: #3b82f6;
+            margin-bottom: 4px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .logo p {
+            font-size: 11px;
+            color: #58a6ff;
+            font-family: 'Courier New', monospace;
+        }
+
+        .nav-menu {
+            flex: 1;
+            padding: 16px 0;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            padding: 14px 20px;
+            margin: 4px 12px;
+            border-radius: 0;
+            border-left: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #8b949e;
+            font-weight: 600;
+        }
+
+        .nav-item:hover {
+            background: rgba(59, 130, 246, 0.05);
+            border-left-color: #3b82f6;
+            color: #3b82f6;
+        }
+
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.1);
+            border-left-color: #3b82f6;
+            color: #3b82f6;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .nav-item-icon {
+            font-size: 18px;
+        }
+
+        .user-info {
+            padding: 16px 20px;
+            border-top: 2px solid #3b82f6;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #161b22;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 0;
+            background: #3b82f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #0d1117;
+            border: 2px solid #3b82f6;
+        }
+
+        .user-details {
+            flex: 1;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+
+        .user-role {
+            font-size: 11px;
+            color: #58a6ff;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            overflow: auto;
+        }
+
+        .page {
+            display: none;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* 数据大屏页面 - 使用原有样式 */
+        #dashboardPage {
+            background: #0a0e1a;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 360px 1fr 360px;
+            grid-template-rows: repeat(3, 1fr);
+            gap: 16px;
+            padding: 16px;
+            height: 100vh;
+            background: #0a0e1a;
+        }
+
+        .dashboard-panel {
+            background: #0d1117;
+            border: 2px solid #3b82f6;
+            border-radius: 0;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #21262d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* 报告列表页面 */
+        .reports-header {
+            padding: 20px 32px;
+            border-bottom: 2px solid #3b82f6;
+            background: #0d1117;
+        }
+
+        .reports-header h2 {
+            font-size: 20px;
+            color: #3b82f6;
+            margin-bottom: 6px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .reports-header p {
+            color: #58a6ff;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .reports-content {
+            padding: 24px 32px;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #0d1117;
+            border-radius: 0;
+            overflow: hidden;
+            border: 2px solid #3b82f6;
+        }
+
+        .report-table th {
+            background: #161b22;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 700;
+            color: #3b82f6;
+            border-bottom: 2px solid #3b82f6;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .report-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #21262d;
+            color: #c9d1d9;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .report-table tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 0;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid;
+            font-family: 'Courier New', monospace;
+        }
+
+        .status-normal {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .status-warning {
+            background: rgba(255, 68, 68, 0.1);
+            color: #ff4444;
+            border-color: #ff4444;
+        }
+
+        /* 员工管理页面 */
+        .employee-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 24px 32px;
+        }
+
+        .employee-card {
+            background: #0d1117;
+            border: 2px solid #3b82f6;
+            border-radius: 0;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .employee-card:hover {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6;
+        }
+
+        .employee-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .employee-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 0;
+            background: #3b82f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #0d1117;
+            font-weight: 700;
+            border: 2px solid #3b82f6;
+        }
+
+        .employee-info {
+            flex: 1;
+        }
+
+        .employee-name {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #3b82f6;
+        }
+
+        .employee-role {
+            color: #58a6ff;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .employee-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: #161b22;
+            border-radius: 0;
+            border: 1px solid #21262d;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #3b82f6;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        /* 统计分析页面 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: #0d1117;
+            border: 2px solid #3b82f6;
+            border-radius: 0;
+            padding: 20px;
+        }
+
+        .stat-card-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stat-card-label {
+            color: #58a6ff;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            padding: 0 32px 32px;
+        }
+
+        .chart-card {
+            background: #0d1117;
+            border: 2px solid #3b82f6;
+            border-radius: 0;
+            padding: 20px;
+            height: 400px;
+        }
+
+        .chart-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'Courier New', monospace;
+            border-bottom: 1px solid #21262d;
+            padding-bottom: 8px;
+        }
+
+        /* 3D场景容器 */
+        #scene3d {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 左侧导航栏 -->
+        <div class="sidebar">
+            <div class="logo">
+                <h1>🔥 锅炉巡检</h1>
+                <p>管理系统 v2.0</p>
+            </div>
+
+            <div class="nav-menu">
+                <div class="nav-item active" onclick="switchPage('dashboard')">
+                    <span class="nav-item-icon">📊</span>
+                    <span>数据大屏</span>
+                </div>
+                <div class="nav-item" onclick="switchPage('reports')">
+                    <span class="nav-item-icon">📋</span>
+                    <span>巡检报告</span>
+                </div>
+                <div class="nav-item" onclick="switchPage('employees')">
+                    <span class="nav-item-icon">👥</span>
+                    <span>员工管理</span>
+                </div>
+                <div class="nav-item" onclick="switchPage('analytics')">
+                    <span class="nav-item-icon">📈</span>
+                    <span>统计分析</span>
+                </div>
+                <!-- 新增 AI 助手入口 -->
+                <div class="nav-item" onclick="switchPage('ai-agent')">
+                    <span class="nav-item-icon">🤖</span>
+                    <span>AI 智能助手</span>
+                </div>
+                <div class="nav-item" onclick="switchPage('settings')">
+                    <span class="nav-item-icon">⚙️</span>
+                    <span>系统设置</span>
+                </div>
+            </div>
+
+            <div class="user-info">
+                <div class="user-avatar">👤</div>
+                <div class="user-details">
+                    <div class="user-name">系统管理员</div>
+                    <div class="user-role">超级管理员</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 数据大屏页面 -->
+            <div id="dashboardPage" class="page active">
+                <iframe src="dashboard/frontend/dashboard.html" style="width:100%; height:100%; border:none;"></iframe>
+            </div>
+
+            <!-- 巡检报告页面 -->
+            <div id="reportsPage" class="page">
+                <div class="reports-header">
+                    <h2>巡检报告列表</h2>
+                    <p>查看和管理所有巡检报告记录</p>
+                </div>
+                <div class="reports-content">
+                    <table class="report-table" id="reportTable">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>检查员</th>
+                                <th>位置</th>
+                                <th>温度(°C)</th>
+                                <th>压力(MPa)</th>
+                                <th>状态</th>
+                                <th>问题描述</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding:40px; color:#94a3b8;">
+                                    暂无数据，请上传JSON文件
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 员工管理页面 -->
+            <div id="employeesPage" class="page">
+                <div class="reports-header">
+                    <h2>员工管理</h2>
+                    <p>查看巡检人员的统计信息</p>
+                </div>
+                <div class="employee-grid" id="employeeGrid">
+                    <div style="grid-column: 1/-1; text-align:center; padding:40px; color:#94a3b8;">
+                        暂无数据，请上传JSON文件
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计分析页面 -->
+            <div id="analyticsPage" class="page">
+                <div class="reports-header">
+                    <h2>统计分析</h2>
+                    <p>数据统计与趋势分析</p>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-value" id="totalRecords">0</div>
+                        <div class="stat-card-label">总巡检次数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value" id="alertCount">0</div>
+                        <div class="stat-card-label">告警记录</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value" id="avgTemp">0</div>
+                        <div class="stat-card-label">平均温度(°C)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value" id="avgPressure">0</div>
+                        <div class="stat-card-label">平均压力(MPa)</div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-title">时间分布统计</div>
+                        <div id="timeChart" style="width:100%; height:340px;"></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">问题类型分布</div>
+                        <div id="issueChart" style="width:100%; height:340px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI 智能助手页面 -->
+            <div id="ai-agentPage" class="page">
+                <div class="reports-header">
+                    <h2>工业安全大模型助手</h2>
+                    <p>基于 ERNIE-X1.1 | 实时分析巡检数据</p>
+                </div>
+                <div style="display: flex; flex-direction: column; height: calc(100vh - 120px); padding: 20px;">
+                    <!-- 聊天记录区域 -->
+                    <div id="chatHistory" style="flex: 1; border: 2px solid #3b82f6; background: rgba(13, 17, 23, 0.8); padding: 20px; overflow-y: auto; margin-bottom: 20px; border-radius: 8px;">
+                        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                            <div style="width: 36px; height: 36px; background: #3b82f6; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white;">🤖</div>
+                            <div style="background: rgba(59, 130, 246, 0.2); padding: 12px 16px; border-radius: 12px; max-width: 80%; color: #e2e8f0; border: 1px solid rgba(59, 130, 246, 0.3);">
+                                您好！如果不清楚如何分析，您可以点击下方快捷指令，或者直接问我：<br>
+                                "当前数据的安全隐患有哪些？"<br>
+                                "生成一份简要的巡检总结报告"<br>
+                                "分析一下#1号锅炉的运行状况"
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 快捷指令 -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                        <button onclick="sendQuickMessage('基于当前上传的数据，生成一份安全巡检总结报告')" style="background: rgba(59,130,246,0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px;">📑 生成总结报告</button>
+                        <button onclick="sendQuickMessage('分析当前数据中所有的告警记录，并给出整改建议')" style="background: rgba(59,130,246,0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px;">⚠️ 分析告警隐患</button>
+                        <button onclick="sendQuickMessage('哪些设备的故障率最高？')" style="background: rgba(59,130,246,0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px;">📊 统计高频故障</button>
+                    </div>
+
+                    <!-- 输入区域 -->
+                    <div style="display: flex; gap: 10px; padding-bottom: 20px;">
+                        <input type="text" id="aiInput" placeholder="请输入您的问题，例如：'分析一下温度异常的原因'..." 
+                               style="flex: 1; padding: 15px; background: #0d1117; border: 2px solid #3b82f6; color: white; border-radius: 8px; outline: none; font-size: 14px;">
+                        <button onclick="sendAIMessage()" id="aiSendBtn"
+                                style="padding: 0 30px; background: #3b82f6; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: all 0.2s;">
+                            发送
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系统设置页面 -->
+            <div id="settingsPage" class="page">
+                <div class="reports-header">
+                    <h2>系统设置</h2>
+                    <p>系统参数配置</p>
+                </div>
+                <div class="reports-content" style="max-width: 800px;">
+                    <div class="dashboard-panel">
+                        <h3 style="margin-bottom: 20px;">数据导入</h3>
+                        <input type="file" id="jsonFileInput" accept=".json" style="display:none;">
+                        <button onclick="document.getElementById('jsonFileInput').click()" 
+                                style="padding: 12px 24px; background: #2563eb; border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 14px;">
+                            📁 上传巡检数据JSON文件
+                        </button>
+                        <p style="margin-top: 12px; font-size: 13px; color: #94a3b8;">
+                            支持单个报告或多报告合集格式
+                        </p>
+                        <div style="margin-top: 20px; border-top: 1px solid #21262d; padding-top: 20px;">
+                             <button onclick="clearAllData()" style="padding: 10px 20px; background: #ef4444; border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 13px;">⚠️ 清空所有数据</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+
+        // Mock数据：5个员工的巡检记录
+        const mockData = [
+            {
+                id: "1",
+                inspector: "王工",
+                time: "2026-01-23 08:30:15",
+                location: "#1号锅炉",
+                position: { x: 2.5, y: -1.2, z: 0.3 },
+                temperature: 92.3,
+                pressure: 1.85,
+                status: "告警",
+                issue: "排烟温度过高",
+                description: "发现排烟管道温度异常偏高，建议立即检查排烟系统是否堵塞。"
+            },
+            {
+                id: "2",
+                inspector: "李师傅",
+                time: "2026-01-23 09:15:30",
+                location: "#2号锅炉",
+                position: { x: -1.8, y: 0.5, z: 1.2 },
+                temperature: 78.5,
+                pressure: 1.52,
+                status: "正常",
+                description: "设备运行平稳，各项指标正常。"
+            },
+            {
+                id: "3",
+                inspector: "张班长",
+                time: "2026-01-23 10:00:00",
+                location: "主控机组",
+                position: { x: 0.2, y: 0.8, z: 2.1 },
+                temperature: 85.2,
+                pressure: 1.68,
+                status: "正常",
+                description: "主控系统响应正常，压力稳定。"
+            },
+            {
+                id: "4",
+                inspector: "赵队长",
+                time: "2026-01-23 11:20:10",
+                location: "辅助炉",
+                position: { x: 3.1, y: -2.3, z: 0.8 },
+                temperature: 95.8,
+                pressure: 2.12,
+                status: "告警",
+                issue: "压力异常",
+                description: "辅助炉压力超标，已触发预警机制，建议暂停运行进行安全检查。"
+            },
+            {
+                id: "5",
+                inspector: "孙工",
+                time: "2026-01-23 13:45:20",
+                location: "冷却系统",
+                position: { x: -2.5, y: 1.2, z: -0.5 },
+                temperature: 65.3,
+                pressure: 0.95,
+                status: "正常",
+                description: "冷却水循环正常，温度控制良好。"
+            },
+            {
+                id: "6",
+                inspector: "王工",
+                time: "2026-01-23 14:30:00",
+                location: "#1号锅炉",
+                position: { x: 2.8, y: -0.9, z: 0.5 },
+                temperature: 81.2,
+                pressure: 1.58,
+                status: "正常",
+                description: "温度已恢复正常范围，持续监控中。"
+            },
+            {
+                id: "7",
+                inspector: "李师傅",
+                time: "2026-01-23 15:10:30",
+                location: "#2号锅炉",
+                position: { x: -1.5, y: 0.3, z: 1.5 },
+                temperature: 77.8,
+                pressure: 1.48,
+                status: "正常",
+                description: "运行稳定，无异常。"
+            },
+            {
+                id: "8",
+                inspector: "赵队长",
+                time: "2026-01-23 16:00:00",
+                location: "辅助炉",
+                position: { x: 3.3, y: -2.1, z: 0.9 },
+                temperature: 88.2,
+                pressure: 1.92,
+                status: "正常",
+                description: "压力已调整至安全范围，设备恢复正常运行。"
+            }
+        ];
+
+        // 页面加载时显示mock数据
+        window.addEventListener('DOMContentLoaded', function() {
+            allData = [...mockData];
+            updateReportTable();
+            updateEmployeeGrid();
+            // 不立即初始化analytics，等切换到该页面时再初始化
+        });
+
+        // 全局存储图表实例
+        let timeChart = null;
+        let issueChart = null;
+
+        // 页面切换
+        function switchPage(pageName) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById(pageName + 'Page').classList.add('active');
+            event.target.closest('.nav-item').classList.add('active');
+            
+            // 如果切换到统计分析页面，初始化或更新图表
+            if (pageName === 'analytics') {
+                setTimeout(() => {
+                    updateAnalytics();
+                }, 100); // 给一点时间让DOM渲染
+            }
+            
+            // 如果切换到其他页面，调整图表大小（如果已初始化）
+            if (timeChart) timeChart.resize();
+            if (issueChart) issueChart.resize();
+        }
+
+        // 加载JSON文件
+        document.getElementById('jsonFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const jsonData = JSON.parse(event.target.result);
+                    processData(jsonData);
+                    alert('数据加载成功！');
+                } catch (error) {
+                    alert('JSON解析失败: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+
+        function processData(jsonData) {
+            // 支持两种格式：单个报告 或 多报告合集
+            let rawData = [];
+            if (jsonData.record) {
+                // 单个报告格式
+                rawData = [jsonData.record];
+            } else if (jsonData.records) {
+                // 多报告合集格式
+                rawData = jsonData.records;
+            } else if (Array.isArray(jsonData)) {
+                // 直接数组格式
+                rawData = jsonData;
+            } else {
+                alert('JSON格式不正确');
+                return;
+            }
+
+            // 标准化数据
+            const newRecords = rawData.map(r => ({
+                ...r,
+                temp: r.temp || r.temperature, 
+                temperature: r.temperature || r.temp,
+                abnormalType: r.abnormalType || r.issue,
+                issue: r.issue || r.abnormalType,
+                pressure: r.pressure,
+                photo: r.photo
+            }));
+
+            // 追加数据 (而不是覆盖)
+            if (allData.length > 0) {
+                // 简单的去重逻辑(可选): 避免重复ID
+                const existingIds = new Set(allData.map(d => d.id));
+                const uniqueRecords = newRecords.filter(r => !existingIds.has(r.id));
+                
+                if (uniqueRecords.length > 0) {
+                    allData = allData.concat(uniqueRecords);
+                } else {
+                    console.warn("所有导入数据已存在", newRecords);
+                }
+            } else {
+                allData = newRecords;
+            }
+
+            // 更新本页面的各个模块
+            refreshAllViews();
+            
+            alert(`成功加载 ${newRecords.length} 条数据！\n当前总数据量: ${allData.length}`);
+        }
+
+
+        function deleteReport(index) {
+            if (confirm('确定要删除这条记录吗？')) {
+                allData.splice(index, 1);
+                refreshAllViews();
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('警告：确定要清空所有数据吗？此操作不可恢复。')) {
+                allData = [];
+                refreshAllViews();
+            }
+        }
+
+        function refreshAllViews() {
+            updateReportTable();
+            updateEmployeeGrid();
+            updateAnalytics();
+            
+            // 同步到 Iframe
+            const iframe = document.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'updateData',
+                    data: allData
+                }, '*');
+            }
+        }
+
+        function updateReportTable() {
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+            
+            allData.forEach((record, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${record.time}</td>
+                    <td>${record.inspector}</td>
+                    <td>${record.location}</td>
+                    <td>${record.temperature || '-'}</td>
+                    <td>${record.pressure || '-'}</td>
+                    <td><span class="status-badge ${record.status === '告警' ? 'status-warning' : 'status-normal'}">${record.status}</span></td>
+                    <td>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>${record.issue || record.description || '-'}</span>
+                            <button onclick="deleteReport(${index})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:12px; margin-left:10px;">[删除]</button>
+                        </div>
+                    </td>
+                `;
+            });
+            
+            if (allData.length === 0) {
+                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:#94a3b8;">暂无数据</td></tr>';
+            }
+        }
+
+        function updateEmployeeGrid() {
+            const grid = document.getElementById('employeeGrid');
+            
+            // 按检查员统计
+            const stats = {};
+            allData.forEach(record => {
+                if (!stats[record.inspector]) {
+                    stats[record.inspector] = { total: 0, alerts: 0 };
+                }
+                stats[record.inspector].total++;
+                if (record.status === '告警') {
+                    stats[record.inspector].alerts++;
+                }
+            });
+
+            grid.innerHTML = '';
+            Object.keys(stats).forEach((name, index) => {
+                const card = document.createElement('div');
+                card.className = 'employee-card';
+                card.innerHTML = `
+                    <div class="employee-header">
+                        <div class="employee-avatar">${name[0]}</div>
+                        <div class="employee-info">
+                            <div class="employee-name">${name}</div>
+                            <div class="employee-role">巡检人员</div>
+                        </div>
+                    </div>
+                    <div class="employee-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${stats[name].total}</div>
+                            <div class="stat-label">巡检次数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats[name].alerts}</div>
+                            <div class="stat-label">发现告警</div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function updateAnalytics() {
+            const alertRecords = allData.filter(r => r.status === '告警');
+            const temps = allData.filter(r => r.temperature).map(r => r.temperature);
+            const pressures = allData.filter(r => r.pressure).map(r => r.pressure);
+
+            document.getElementById('totalRecords').textContent = allData.length;
+            document.getElementById('alertCount').textContent = alertRecords.length;
+            document.getElementById('avgTemp').textContent = temps.length ? (temps.reduce((a,b) => a+b, 0) / temps.length).toFixed(1) : '0';
+            document.getElementById('avgPressure').textContent = pressures.length ? (pressures.reduce((a,b) => a+b, 0) / pressures.length).toFixed(2) : '0';
+
+            // 时间分布图 - 重新初始化或更新
+            if (!timeChart) {
+                timeChart = echarts.init(document.getElementById('timeChart'));
+            }
+            const hourCounts = new Array(24).fill(0);
+            allData.forEach(record => {
+                const hour = new Date(record.time).getHours();
+                hourCounts[hour]++;
+            });
+
+            timeChart.setOption({
+                backgroundColor: 'transparent',
+                grid: { left: 60, right: 30, top: 30, bottom: 50 },
+                xAxis: {
+                    type: 'category',
+                    data: Array.from({length:24}, (_, i) => i + ':00'),
+                    axisLine: { lineStyle: { color: '#3b82f6', width: 2 } },
+                    axisLabel: { 
+                        color: '#58a6ff', 
+                        interval: 2,
+                        fontFamily: 'Courier New, monospace',
+                        fontSize: 11
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLine: { lineStyle: { color: '#3b82f6', width: 2 } },
+                    axisLabel: { 
+                        color: '#58a6ff',
+                        fontFamily: 'Courier New, monospace',
+                        fontSize: 11
+                    },
+                    splitLine: { lineStyle: { color: '#21262d', type: 'dashed' } }
+                },
+                series: [{
+                    data: hourCounts,
+                    type: 'bar',
+                    itemStyle: {
+                        color: '#3b82f6',
+                        borderColor: '#3b82f6',
+                        borderWidth: 1
+                    },
+                    barWidth: '60%'
+                }],
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: '#0d1117',
+                    borderColor: '#3b82f6',
+                    borderWidth: 2,
+                    textStyle: { 
+                        color: '#3b82f6',
+                        fontFamily: 'Courier New, monospace',
+                        fontSize: 12
+                    }
+                }
+            });
+
+            // 问题类型分布 - 重新初始化或更新
+            if (!issueChart) {
+                issueChart = echarts.init(document.getElementById('issueChart'));
+            }
+            const issueTypes = {};
+            allData.forEach(record => {
+                if (record.issue) {
+                    const issues = record.issue.split('、');
+                    issues.forEach(issue => {
+                        issueTypes[issue] = (issueTypes[issue] || 0) + 1;
+                    });
+                }
+            });
+
+            const pieData = Object.keys(issueTypes).map(key => ({ name: key, value: issueTypes[key] }));
+            
+            // 如果没有问题数据，显示"正常"
+            if (pieData.length === 0) {
+                pieData.push({ name: '正常运行', value: allData.length });
+            }
+
+            issueChart.setOption({
+                backgroundColor: 'transparent',
+                color: ['#3b82f6', '#58a6ff', '#ff4444', '#ffa500', '#ff00ff', '#00ffff'],
+                series: [{
+                    type: 'pie',
+                    radius: ['45%', '75%'],
+                    data: pieData,
+                    itemStyle: {
+                        borderRadius: 0,
+                        borderColor: '#0d1117',
+                        borderWidth: 3
+                    },
+                    label: {
+                        color: '#58a6ff',
+                        fontFamily: 'Courier New, monospace',
+                        fontSize: 12,
+                        fontWeight: 'bold'
+                    },
+                    labelLine: {
+                        lineStyle: {
+                            color: '#21262d'
+                        }
+                    }
+                }],
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: '#0d1117',
+                    borderColor: '#3b82f6',
+                    borderWidth: 2,
+                    textStyle: { 
+                        color: '#3b82f6',
+                        fontFamily: 'Courier New, monospace',
+                        fontSize: 12
+                    }
+                }
+            });
+        }
+
+        // --- AI Agent Logic ---
+        function sendQuickMessage(text) {
+            document.getElementById('aiInput').value = text;
+            sendAIMessage();
+        }
+
+        async function sendAIMessage() {
+            // Check if running via file:// protocol
+            if (window.location.protocol === 'file:') {
+                const msg = "⚠️ AI 功能无法在直接打开的文件中运行！\n\n请启动本地服务器以使用 AI 助手：\n1. 打开终端 (Terminal)\n2. 运行 'python3 server.py'\n3. 访问 http://localhost:8000/dashboard_system.html";
+                alert(msg);
+                appendMessage('ai', '❌ 请按照提示启动服务器以使用此功能。');
+                return;
+            }
+
+            const input = document.getElementById('aiInput');
+            const userText = input.value.trim();
+            if (!userText) return;
+
+            // 1. UI: 添加用户消息
+            appendMessage('user', userText);
+            input.value = '';
+            
+            // 2. UI: 添加Loading状态
+            const loadingId = appendMessage('ai', 'Thinking...', true);
+
+            // 3. 构建上下文数据 (Context)
+            // 取最近的50条数据避免Token溢出，或者进行精简
+            const dataContext = JSON.stringify(allData.slice(0, 50).map(d => ({
+                时间: d.time,
+                位置: d.location,
+                温度: d.temperature || d.temp,
+                压力: d.pressure,
+                状态: d.status,
+                问题: d.issue || d.abnormalType,
+                描述: d.description
+            })));
+
+            const systemPrompt = `你是一个工业安全数据分析专家。
+当前系统加载了最新的锅炉巡检数据（JSON格式）。
+请根据这些数据回答用户的问题。
+如果是告警数据，请重点关注。
+如果用户要求生成报告，请按标准工业格式输出。
+请使用中文回答。
+以下是数据片段：
+${dataContext}`;
+
+            try {
+                // Combine system prompt and user text to avoid consecutive user messages error
+                const fullContent = systemPrompt + "\n\n用户提问：" + userText;
+
+                // 4. 调用 Local Proxy API
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'ernie-x1.1-preview',
+                        messages: [
+                            { role: 'user', content: fullContent }
+                        ],
+                        stream: false
+                    })
+                });
+
+                const result = await response.json();
+                console.log("AI API Response:", result);
+
+                // 移除Loading
+                const loadingEl = document.getElementById(loadingId);
+                if(loadingEl) loadingEl.remove();
+
+                if (result.error_msg) {
+                    appendMessage('ai', '⚠️ API Error: ' + result.error_msg);
+                    console.error('API Error:', result);
+                } else if (result.choices && result.choices.length > 0) {
+                    const aiContent = result.choices[0].message.content;
+                    appendMessage('ai', aiContent);
+                } else {
+                    appendMessage('ai', '⚠️ 服务暂时不可用。请检查控制台(F12)查看详细错误。');
+                    console.warn('Unexpected Response:', result);
+                }
+
+            } catch (error) {
+                const loadingEl = document.getElementById(loadingId);
+                if(loadingEl) loadingEl.remove();
+                appendMessage('ai', '发生错误: ' + error.message);
+                console.error(error);
+            }
+        }
+
+        function appendMessage(role, text, isLoading = false) {
+            const history = document.getElementById('chatHistory');
+            const msgDiv = document.createElement('div');
+            msgDiv.style.display = 'flex';
+            msgDiv.style.gap = '12px';
+            msgDiv.style.marginBottom = '20px';
+            msgDiv.style.justifyContent = role === 'user' ? 'flex-end' : 'flex-start';
+
+            const avatar = role === 'user' ? '👤' : '🤖';
+            const bg = role === 'user' ? '#1f2937' : 'rgba(59, 130, 246, 0.2)';
+            const border = role === 'user' ? '#374151' : 'rgba(59, 130, 246, 0.3)';
+            
+            // Markdown 解析 (简单版: 处理换行)
+            let formattedText = text.replace(/\n/g, '<br>');
+            formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // 粗体
+
+            const contentHtml = `
+                <div style="background: ${bg}; padding: 12px 16px; border-radius: 12px; max-width: 80%; color: #e2e8f0; border: 1px solid ${border}; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    ${formattedText}
+                </div>
+            `;
+
+            if (role === 'user') {
+                msgDiv.innerHTML = contentHtml + `<div style="min-width: 36px; height: 36px; background: #374151; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white;">${avatar}</div>`;
+            } else {
+                msgDiv.innerHTML = `<div style="min-width: 36px; height: 36px; background: #3b82f6; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white;">${avatar}</div>` + contentHtml;
+            }
+            
+            if (isLoading) {
+                msgDiv.id = 'msg-' + Date.now();
+                msgDiv.querySelector('div[style*="background"]').innerHTML = 'Thinking... <span class="loading-dots"></span>';
+            }
+
+            history.appendChild(msgDiv);
+            history.scrollTop = history.scrollHeight;
+            return msgDiv.id;
+        }
+
+        // Add CSS for loading dots
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes dot-blink {
+                0% { opacity: 0.2; }
+                20% { opacity: 1; }
+                100% { opacity: 0.2; }
+            }
+            .loading-dots:after {
+                content: '...';
+                animation: dot-blink 1.5s infinite steps(5, end);
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

@@ -13,11 +13,18 @@
 
 ## 本地运行
 1) 安装 Python 3。
-2) 终端进入此目录：
+2) 终端进入此目录，先设置 AI 密钥（server.py 从环境变量读取，不再硬编码）：
    ```bash
-   python3 server.py
+   # Unix / macOS:
+   export BAIDU_API_KEY="你的密钥"
+   # Windows PowerShell:
+   $env:BAIDU_API_KEY = "你的密钥"
    ```
-3) 浏览器访问：`http://localhost:8000/dashboard_system.html`
+3) 启动服务：
+   ```bash
+   python server.py
+   ```
+4) 浏览器访问：`http://localhost:8000/dashboard_system.html`
 
 ## 常见问题
 - 若看到 “Failed to fetch / CORS” 提示：必须通过 `python3 server.py` 启动后访问，不要直接双击 HTML。

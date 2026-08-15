@@ -7,12 +7,13 @@ import os
 
 PORT = 8000
 API_URL = "https://aistudio.baidu.com/llm/lmapi/v3/chat/completions"
-API_KEY = "831a87555da15eb5702d7fea6ab9555b82b20b24"
+# 密钥从环境变量读取，避免硬编码泄露（设置方式见 README）
+API_KEY = os.environ.get("BAIDU_API_KEY", "")
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path == '/api/chat':
-            content_length = int(self.headers['Content-Length'])
+            content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
             
             try:
@@ -51,6 +52,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
+if not API_KEY:
+    print("WARNING: BAIDU_API_KEY is not set. Set it via environment variable before calling /api/chat.")
 print(f"Starting server at http://localhost:{PORT}")
 print(f"Open http://localhost:{PORT}/dashboard_system.html to view dashboard")
 

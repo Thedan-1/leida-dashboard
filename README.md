@@ -26,6 +26,8 @@
    ```
 4) 浏览器访问：`http://localhost:8000/dashboard_system.html`
 
+代理只接受 `/api/chat` 的 JSON 请求，限制请求体为 1 MiB，并为上游调用设置 30 秒超时。没有配置 `BAIDU_API_KEY` 时接口会明确返回 `503`，不会尝试转发空凭据。默认只允许 `http://localhost:8000` 的跨域来源；如果前端运行在其他本地端口，可通过 `LEIDA_ALLOWED_ORIGIN` 配置。
+
 ## 常见问题
 - 若看到 “Failed to fetch / CORS” 提示：必须通过 `python3 server.py` 启动后访问，不要直接双击 HTML。
 - AI 无响应：检查终端是否有 400/401 报错；必要时重启 `server.py` 并刷新页面 (Cmd+Shift+R)。

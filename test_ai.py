@@ -1,42 +1,58 @@
-import requests
-import json
+"""Optional connectivity check for the Baidu ERNIE endpoint.
 
-def test_ernie_api():
-    url = "https://aistudio.baidu.com/llm/lmapi/v3/chat/completions"
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer 831a87555da15eb5702d7fea6ab9555b82b20b24'
-    }
-    
+The test is skipped when no credential is configured. It never contains a
+real token, so running the repository test suite cannot leak or revoke a
+developer's key.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import unittest
+import urllib.error
+import urllib.request
+
+API_URL = "https://aistudio.baidu.com/llm/lmapi/v3/chat/completions"
+
+
+def request_ernie(api_key: str, timeout: float = 10.0) -> dict:
     payload = {
         "model": "ernie-x1.1-preview",
-        "messages": [
-            {
-                "role": "user",
-                "content": "你好，请回复“API连接成功”"
-            }
-        ],
-        "stream": False
+        "messages": [{"role": "user", "content": "你好，请回复‘API连接成功’"}],
+        "stream": False,
     }
+    request = urllib.request.Request(
+        API_URL,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        if response.status != 200:
+            raise AssertionError(f"Unexpected status code: {response.status}")
+        return json.loads(response.read().decode("utf-8"))
 
-    try:
-        print(f"Testing connection to: {url}")
-        print("Waiting for response...")
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
-        
-        print(f"Status Code: {response.status_code}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            print("Response Body:")
-            print(json.dumps(result, indent=2, ensure_ascii=False))
-            print("\n✅ 测试通过！API Key有效，网络畅通。")
-        else:
-            print(f"❌ 请求失败: {response.text}")
-            
-    except Exception as e:
-        print(f"❌ 发生异常: {str(e)}")
+
+class ErnieConnectivityTest(unittest.TestCase):
+    def test_ernie_api(self) -> None:
+        api_key = os.environ.get("BAIDU_API_KEY", "").strip()
+        if not api_key:
+            self.skipTest("BAIDU_API_KEY is not configured; skipping live API check")
+
+        try:
+            result = request_ernie(api_key)
+        except urllib.error.HTTPError as error:
+            self.fail(f"Baidu API returned HTTP {error.code}: {error.read().decode(errors='replace')}")
+        except (urllib.error.URLError, TimeoutError) as error:
+            self.fail(f"Unable to reach Baidu API: {error}")
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("choices", result)
+
 
 if __name__ == "__main__":
-    test_ernie_api()
+    unittest.main()
